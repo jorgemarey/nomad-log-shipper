@@ -62,6 +62,8 @@ func (a *Agent) Start() {
 
 // Stop tells the agent to stop collecting logs
 func (a *Agent) Stop() error {
+	// TODO: call every collector stop and wait for them
+	// TODO: wait for processing to finish
 	return nil
 }
 
@@ -72,7 +74,7 @@ func (a *Agent) modifiedAllocation(alloc *nomad.Allocation) {
 	switch {
 	// Allocation is in terminal state but it's still tracked. Stop and remove
 	case terminal && ok:
-		collector.Shutdown() // TODO: here we wait to finish then we should send this in background
+		collector.Shutdown() // TODO: here we wait to finish, we should send this in background
 		delete(a.tracked, alloc.ID)
 	// Allocation is already removed and terminal
 	case terminal:
