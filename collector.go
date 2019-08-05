@@ -10,6 +10,7 @@ import (
 
 	nomad "github.com/hashicorp/nomad/api"
 	"github.com/jorgemarey/nomad-log-shipper/output"
+	"github.com/jorgemarey/nomad-log-shipper/storage"
 )
 
 // Collector is the one dealing with the allocation log recollection
@@ -24,11 +25,13 @@ type Collector struct {
 	canceled bool
 	mtx      sync.Mutex
 	tasks    map[string]struct{}
+
+	storer storage.Storer
 }
 
 // NewAllocCollector initializes the allocation log collector. This deals with all task logs for
 // this allocation
-func NewAllocCollector(alloc *nomad.Allocation, getter LogGetter, logCh chan<- *output.LogFrame) *Collector {
+func NewAllocCollector(alloc *nomad.Allocation, getter LogGetter, logCh chan<- *output.LogFrame, storer storage.Storer) *Collector {
 	return &Collector{
 		alloc:    alloc,
 		getter:   getter,
@@ -37,6 +40,7 @@ func NewAllocCollector(alloc *nomad.Allocation, getter LogGetter, logCh chan<- *
 		shutdown: make(chan struct{}),
 		cancel:   make(chan struct{}),
 		tasks:    make(map[string]struct{}),
+		storer:   storer,
 	}
 }
 
@@ -57,7 +61,15 @@ func (c *Collector) Update(alloc *nomad.Allocation) {
 
 // Stop forcefully stops the log recollection
 func (c *Collector) Stop() {
+	select {
+	// If we're already in shutdown just wait
+	case <-c.shutdown:
+		c.wg.Wait()
+		return
+	default:
+	}
 	c.closeCancel()
+	fmt.Println("Closed cancel")
 	c.Shutdown()
 }
 
@@ -78,26 +90,26 @@ func (c *Collector) collectTaskLogs(task string) { // TODO: refactor this to avo
 	go outP.Start()
 
 	// origin must be start because in other case it will start from the end on the files (so some logs could be lost)
-	// TODO: work with the offset
-	stderr, errError := c.getter.Logs(c.alloc, true, task, "stderr", nomad.OriginStart, 0, c.cancel, nil)
-	stdout, outError := c.getter.Logs(c.alloc, true, task, "stdout", nomad.OriginStart, 0, c.cancel, nil)
+	stderr, errError := c.advanceFrames(task, "stderr", errP)
+	stdout, outError := c.advanceFrames(task, "stdout", errP)
+
 	for {
 		// hearbeat frames are already processed by nomad client
 		select {
 		case frame := <-stderr:
+			// fmt.Printf("Received frame: %+v", frame)
 			if frame.FileEvent != "" {
-				// TODO
-				continue
+				continue // TODO
 			}
 			errP.Write(frame.Data)
-			fmt.Printf("Event: %s. Offset: %d. File: %s\n", frame.FileEvent, frame.Offset, frame.File)
+			c.storer.Set(task, "stderr", &storage.Info{Offset: frame.Offset, File: frame.File})
 		case frame := <-stdout:
+			// fmt.Printf("Received frame: %+v", frame)
 			if frame.FileEvent != "" {
-				// TODO
-				continue
+				continue // TODO
 			}
 			outP.Write(frame.Data)
-			fmt.Printf("Event: %s. Offset: %d. File: %s\n", frame.FileEvent, frame.Offset, frame.File)
+			c.storer.Set(task, "stdout", &storage.Info{Offset: frame.Offset, File: frame.File})
 		case msg := <-errError:
 			fmt.Println(msg) // TODO
 		case msg := <-outError:
@@ -114,6 +126,31 @@ func (c *Collector) collectTaskLogs(task string) { // TODO: refactor this to avo
 			}
 		}
 	}
+}
+
+func (c *Collector) advanceFrames(task, stream string, proc *streamProccessor) (<-chan *nomad.StreamFrame, <-chan error) {
+	info := c.storer.Get(task, stream)
+	if info == nil {
+		return c.getter.Logs(c.alloc, true, task, stream, nomad.OriginStart, 0, c.cancel, nil)
+	}
+	frameCh, errCh := c.getter.Logs(c.alloc, true, task, stream, nomad.OriginStart, 0, c.cancel, nil)
+	for f := range frameCh {
+		if f.File != info.File { // TODO: change to detect the number
+			continue
+		}
+		if f.Offset < info.Offset {
+			continue
+		}
+		l := int64(len(f.Data))
+		index := l - (f.Offset - info.Offset)
+		if index < 0 { // this is just to avoid nomad bug
+			fmt.Println("Index is negative")
+			index = 0
+		}
+		proc.Write(f.Data[index:])
+		break
+	}
+	return frameCh, errCh
 }
 
 func (c *Collector) closeCancel() error {
@@ -147,7 +184,8 @@ func newStreamProccessor(logCh chan<- *output.LogFrame, kind, taskName string, a
 		"group":      alloc.TaskGroup,
 		"job":        alloc.JobID,
 		"namespace":  alloc.Namespace,
-	} // TODO: include more info like:
+	}
+	// TODO: include more info like:
 	// "alloc_index": data["NOMAD_ALLOC_INDEX"],
 	// "dc":          data["NOMAD_DC"],
 	// "region":      data["NOMAD_REGION"],
@@ -167,8 +205,12 @@ func newStreamProccessor(logCh chan<- *output.LogFrame, kind, taskName string, a
 
 func (p *streamProccessor) Start() {
 	for p.scanner.Scan() {
+		data := p.scanner.Bytes()
+		copied := make([]byte, len(data))
+		copy(copied, data) // we need to copy the data (the scanner uses the same buffer for all the parsing)
+
 		p.logCh <- &output.LogFrame{
-			Data:       p.scanner.Bytes(),
+			Data:       copied,
 			Stream:     p.kind,
 			Properties: p.properties,
 			Meta:       make(map[string]string),
