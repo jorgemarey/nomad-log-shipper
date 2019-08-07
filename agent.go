@@ -117,8 +117,9 @@ func (a *Agent) modifiedAllocation(alloc *nomad.Allocation) {
 		return
 	default:
 		collector = NewAllocCollector(alloc, a.client, a.logCh, a.store.AllocationStorer((alloc.ID)))
-		a.tracked[alloc.ID] = collector
-		collector.Start()
+		if collector.Start() {
+			a.tracked[alloc.ID] = collector
+		}
 	}
 }
 

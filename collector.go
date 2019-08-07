@@ -13,6 +13,8 @@ import (
 	"github.com/jorgemarey/nomad-log-shipper/storage"
 )
 
+const shipperPrefix = "logger_"
+
 // Collector is the one dealing with the allocation log recollection
 type Collector struct {
 	alloc  *nomad.Allocation
@@ -45,18 +47,24 @@ func NewAllocCollector(alloc *nomad.Allocation, getter LogGetter, logCh chan<- *
 }
 
 // Start begins the log collection
-func (c *Collector) Start() {
-	c.Update(c.alloc)
+func (c *Collector) Start() bool {
+	return c.Update(c.alloc)
 }
 
 // Update is meant to be triggered when there's a change in an allocation.
-func (c *Collector) Update(alloc *nomad.Allocation) {
+func (c *Collector) Update(alloc *nomad.Allocation) bool {
+	updated := false
 	for task, info := range alloc.TaskStates {
 		if _, ok := c.tasks[task]; !ok && !info.StartedAt.IsZero() {
-			c.tasks[task] = struct{}{}
-			go c.collectTaskLogs(task)
+			meta := getMeta(alloc, task)
+			if len(meta) > 0 { // TODO: provide meta to allocation task collector
+				c.tasks[task] = struct{}{}
+				go c.collectTaskLogs(task, meta)
+				updated = true
+			}
 		}
 	}
+	return updated
 }
 
 // Stop forcefully stops the log recollection
@@ -69,7 +77,7 @@ func (c *Collector) Stop() {
 	default:
 	}
 	c.closeCancel()
-	fmt.Println("Closed cancel")
+	fmt.Printf("Closed cancel: %s\n", c.alloc.ID)
 	c.Shutdown()
 }
 
@@ -79,14 +87,16 @@ func (c *Collector) Shutdown() {
 	c.wg.Wait()
 }
 
-func (c *Collector) collectTaskLogs(task string) { // TODO: refactor this to avoid code repetition
+func (c *Collector) collectTaskLogs(task string, meta map[string]string) { // TODO: refactor this to avoid code repetition
 	c.wg.Add(1)
 	defer c.wg.Done()
 
-	errP := newStreamProccessor(c.logCh, "stderr", task, c.alloc)
+	properties := getProperties(c.alloc, task)
+
+	errP := newStreamProccessor(c.logCh, "stderr", task, meta, properties)
 	go errP.Start()
 
-	outP := newStreamProccessor(c.logCh, "stdout", task, c.alloc)
+	outP := newStreamProccessor(c.logCh, "stdout", task, meta, properties)
 	go outP.Start()
 
 	// origin must be start because in other case it will start from the end on the files (so some logs could be lost)
@@ -97,14 +107,12 @@ func (c *Collector) collectTaskLogs(task string) { // TODO: refactor this to avo
 		// hearbeat frames are already processed by nomad client
 		select {
 		case frame := <-stderr:
-			// fmt.Printf("Received frame: %+v", frame)
 			if frame.FileEvent != "" {
 				continue // TODO
 			}
 			errP.Write(frame.Data)
 			c.storer.Set(task, "stderr", &storage.Info{Offset: frame.Offset, File: frame.File})
 		case frame := <-stdout:
-			// fmt.Printf("Received frame: %+v", frame)
 			if frame.FileEvent != "" {
 				continue // TODO
 			}
@@ -177,19 +185,7 @@ type streamProccessor struct {
 }
 
 // newStreamProccessor creates and initializes a log stream proccessor
-func newStreamProccessor(logCh chan<- *output.LogFrame, kind, taskName string, alloc *nomad.Allocation) *streamProccessor {
-	properties := map[string]string{
-		"allocation": alloc.ID,
-		"task":       taskName,
-		"group":      alloc.TaskGroup,
-		"job":        alloc.JobID,
-		"namespace":  alloc.Namespace,
-	}
-	// TODO: include more info like:
-	// "alloc_index": data["NOMAD_ALLOC_INDEX"],
-	// "dc":          data["NOMAD_DC"],
-	// "region":      data["NOMAD_REGION"],
-
+func newStreamProccessor(logCh chan<- *output.LogFrame, kind, taskName string, meta, properties map[string]string) *streamProccessor {
 	pr, pw := io.Pipe()
 	scanner := bufio.NewScanner(pr)
 	scanner.Split(sizeSpliter(maxLineSize, bufio.ScanLines))
@@ -198,6 +194,7 @@ func newStreamProccessor(logCh chan<- *output.LogFrame, kind, taskName string, a
 		reader:      pr,
 		WriteCloser: pw,
 		logCh:       logCh,
+		kind:        kind,
 		properties:  properties,
 		finish:      make(chan struct{}),
 	}

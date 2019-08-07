@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"regexp"
+	"strings"
 
 	nomad "github.com/hashicorp/nomad/api"
 )
@@ -59,4 +61,46 @@ func sizeSpliter(maxSize int, splitFunc bufio.SplitFunc) bufio.SplitFunc {
 		}
 		return
 	}
+}
+
+func filterMeta(alloc map[string]string, meta map[string]string) {
+	for k, v := range alloc {
+		if strings.HasPrefix(k, shipperPrefix) {
+			meta[strings.TrimPrefix(k, shipperPrefix)] = v
+		}
+	}
+}
+
+func getMeta(alloc *nomad.Allocation, task string) map[string]string {
+	meta := make(map[string]string)
+	filterMeta(alloc.Job.Meta, meta)
+	for _, tg := range alloc.Job.TaskGroups {
+		if *tg.Name == alloc.TaskGroup {
+			filterMeta(tg.Meta, meta)
+			for _, t := range tg.Tasks {
+				if t.Name == task {
+					filterMeta(t.Meta, meta)
+				}
+			}
+		}
+	}
+	return meta
+}
+
+func getProperties(alloc *nomad.Allocation, task string) map[string]string {
+	properties := map[string]string{
+		"namespace":  alloc.Namespace,
+		"job":        alloc.JobID,
+		"group":      alloc.TaskGroup,
+		"task":       task,
+		"allocation": alloc.ID,
+		"region":     *alloc.Job.Region,
+		// TODO: add datacenter?
+	}
+
+	re := regexp.MustCompile(`\[(?P<index>[0-9]+)\]`) // TODO: compile just once
+	if matchs := re.FindStringSubmatch(alloc.Name); len(matchs) == 2 {
+		properties["alloc_index"] = matchs[1]
+	}
+	return properties
 }
