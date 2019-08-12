@@ -9,7 +9,7 @@ currentBuild.result = 'SUCCESS'
 import meigas.meigasGo.meigasGo;
 def meigasgo = new meigasGo();
 
-VERSION="0.1.0"
+VERSION="0.1.1"
 REPO_NAME="nomad-log-shipper"
 
 node ('meigas-golang'){    
