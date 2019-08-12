@@ -60,7 +60,7 @@ func (c *Collector) Update(alloc *nomad.Allocation) bool {
 	for task, info := range alloc.TaskStates {
 		if _, ok := c.tasks[task]; !ok && !info.StartedAt.IsZero() {
 			meta := getMeta(alloc, task)
-			if len(meta) > 0 {
+			if len(meta) > 1 { // the one is the version
 				c.tasks[task] = struct{}{}
 				go c.collectTaskLogs(task, meta)
 				updated = true
