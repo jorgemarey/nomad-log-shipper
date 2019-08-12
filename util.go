@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	nomad "github.com/hashicorp/nomad/api"
@@ -14,6 +15,8 @@ const (
 )
 
 const shipperPrefix = "logger_"
+
+var indexRegex = regexp.MustCompile(`\[(?P<index>[0-9]+)\]`)
 
 // getLocalNodeID returns the node ID of the local Nomad Client and an error if
 // it couldn't be determined or the Agent is not running in Client mode.
@@ -68,13 +71,15 @@ func sizeSpliter(maxSize int, splitFunc bufio.SplitFunc) bufio.SplitFunc {
 func filterMeta(alloc map[string]string, meta map[string]string) {
 	for k, v := range alloc {
 		if strings.HasPrefix(k, shipperPrefix) {
-			meta[strings.TrimPrefix(k, shipperPrefix)] = v
+			meta[strings.ToLower(strings.TrimPrefix(k, shipperPrefix))] = v
 		}
 	}
 }
 
 func getMeta(alloc *nomad.Allocation, task string) map[string]string {
-	meta := make(map[string]string)
+	meta := map[string]string{
+		"_version": version,
+	}
 	filterMeta(alloc.Job.Meta, meta)
 	for _, tg := range alloc.Job.TaskGroups {
 		if *tg.Name == alloc.TaskGroup {
@@ -89,20 +94,36 @@ func getMeta(alloc *nomad.Allocation, task string) map[string]string {
 	return meta
 }
 
-func getProperties(alloc *nomad.Allocation, task string) map[string]string {
-	properties := map[string]string{
+func getProperties(alloc *nomad.Allocation, task, dc string) map[string]interface{} {
+	properties := map[string]interface{}{
 		"namespace":  alloc.Namespace,
 		"job":        alloc.JobID,
 		"group":      alloc.TaskGroup,
 		"task":       task,
 		"allocation": alloc.ID,
 		"region":     *alloc.Job.Region,
-		// TODO: add datacenter?
+		"datacenter": dc,
 	}
 
-	re := regexp.MustCompile(`\[(?P<index>[0-9]+)\]`) // TODO: compile just once
-	if matchs := re.FindStringSubmatch(alloc.Name); len(matchs) == 2 {
-		properties["alloc_index"] = matchs[1]
+	services := make([]string, 0)
+	for _, tg := range alloc.Job.TaskGroups {
+		if *tg.Name == alloc.TaskGroup {
+			for _, t := range tg.Tasks {
+				if t.Name == task {
+					for _, s := range t.Services {
+						services = append(services, s.Name)
+					}
+				}
+			}
+		}
+	}
+	if len(services) > 0 {
+		properties["service"] = services
+	}
+
+	if matchs := indexRegex.FindStringSubmatch(alloc.Name); len(matchs) == 2 {
+		index, _ := strconv.Atoi(matchs[1])
+		properties["alloc_index"] = index
 	}
 	return properties
 }

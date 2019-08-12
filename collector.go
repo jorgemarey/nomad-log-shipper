@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"bufio"
 	"fmt"
 	"io"
@@ -10,14 +11,17 @@ import (
 
 	nomad "github.com/hashicorp/nomad/api"
 	"github.com/jorgemarey/nomad-log-shipper/output"
+	"github.com/jorgemarey/nomad-log-shipper/processor"
+	"github.com/jorgemarey/nomad-log-shipper/processor/semaas"
 	"github.com/jorgemarey/nomad-log-shipper/storage"
 )
 
 // Collector is the one dealing with the allocation log recollection
 type Collector struct {
-	alloc  *nomad.Allocation
-	getter LogGetter
-	logCh  chan<- *output.LogFrame
+	alloc   *nomad.Allocation
+	dc      string
+	getter  LogGetter
+	outputs map[string]output.Output
 
 	wg       *sync.WaitGroup
 	shutdown chan struct{}
@@ -31,11 +35,12 @@ type Collector struct {
 
 // NewAllocCollector initializes the allocation log collector. This deals with all task logs for
 // this allocation
-func NewAllocCollector(alloc *nomad.Allocation, getter LogGetter, logCh chan<- *output.LogFrame, storer storage.Storer) *Collector {
+func NewAllocCollector(alloc *nomad.Allocation, dc string, getter LogGetter, outs map[string]output.Output, storer storage.Storer) *Collector {
 	return &Collector{
 		alloc:    alloc,
+		dc:       dc,
 		getter:   getter,
-		logCh:    logCh,
+		outputs:  outs,
 		wg:       &sync.WaitGroup{},
 		shutdown: make(chan struct{}),
 		cancel:   make(chan struct{}),
@@ -55,7 +60,7 @@ func (c *Collector) Update(alloc *nomad.Allocation) bool {
 	for task, info := range alloc.TaskStates {
 		if _, ok := c.tasks[task]; !ok && !info.StartedAt.IsZero() {
 			meta := getMeta(alloc, task)
-			if len(meta) > 0 { // TODO: provide meta to allocation task collector
+			if len(meta) > 0 {
 				c.tasks[task] = struct{}{}
 				go c.collectTaskLogs(task, meta)
 				updated = true
@@ -89,12 +94,12 @@ func (c *Collector) collectTaskLogs(task string, meta map[string]string) { // TO
 	c.wg.Add(1)
 	defer c.wg.Done()
 
-	properties := getProperties(c.alloc, task)
+	properties := getProperties(c.alloc, task, c.dc)
 
-	errP := newStreamProccessor(c.logCh, "stderr", task, meta, properties)
+	errP := newStreamProccessor(c.outputs, "stderr", task, properties, meta)
 	go errP.Start()
 
-	outP := newStreamProccessor(c.logCh, "stdout", task, meta, properties)
+	outP := newStreamProccessor(c.outputs, "stdout", task, properties, meta)
 	go outP.Start()
 
 	// origin must be start because in other case it will start from the end on the files (so some logs could be lost)
@@ -175,15 +180,17 @@ type streamProccessor struct {
 	reader  io.Reader
 	io.WriteCloser
 
-	logCh      chan<- *output.LogFrame
+	outputs    map[string]output.Output
 	kind       string
-	properties map[string]string
+	properties map[string]interface{}
+	meta       map[string]string
+	processor  processor.Processor
 
 	finish chan struct{}
 }
 
 // newStreamProccessor creates and initializes a log stream proccessor
-func newStreamProccessor(logCh chan<- *output.LogFrame, kind, taskName string, meta, properties map[string]string) *streamProccessor {
+func newStreamProccessor(outs map[string]output.Output, kind, taskName string, properties map[string]interface{}, meta map[string]string) *streamProccessor {
 	pr, pw := io.Pipe()
 	scanner := bufio.NewScanner(pr)
 	scanner.Split(sizeSpliter(maxLineSize, bufio.ScanLines))
@@ -191,25 +198,28 @@ func newStreamProccessor(logCh chan<- *output.LogFrame, kind, taskName string, m
 		scanner:     scanner,
 		reader:      pr,
 		WriteCloser: pw,
-		logCh:       logCh,
+		outputs:     outs,
 		kind:        kind,
 		properties:  properties,
+		meta:        meta,
+		processor:   semaas.NewSemaasProcessor(),
 		finish:      make(chan struct{}),
 	}
 }
 
 func (p *streamProccessor) Start() {
 	for p.scanner.Scan() {
-		data := p.scanner.Bytes()
-		copied := make([]byte, len(data))
-		copy(copied, data) // we need to copy the data (the scanner uses the same buffer for all the parsing)
-
-		p.logCh <- &output.LogFrame{
-			Data:       copied,
-			Stream:     p.kind,
-			Properties: p.properties,
-			Meta:       make(map[string]string),
+		kind, data, err := p.processor.Process(p.scanner.Text(), p.properties, p.meta)
+		if err != nil {
+			log.Printf("Error processing line: %s", err)
+			continue
 		}
+		out, ok := p.outputs[kind]
+		if !ok {
+			log.Printf("Kind not found: %s", kind)
+			continue
+		}
+		out.Write(data)
 	}
 
 	if p.scanner.Err() != nil {

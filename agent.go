@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"sync"
 	"time"
 
@@ -14,28 +13,27 @@ import (
 // Agent defines a log recolection process
 type Agent struct {
 	NodeID string
+	dc     string
 	client Client
 
-	// here will appear all allocation logs
-	logCh chan *output.LogFrame
 	// a map with all allocation information
 	tracked    map[string]*Collector
 	trackMtx   sync.Mutex
 	shutdownCh chan struct{}
 
-	output output.Output
-	store  storage.Store
+	outputs map[string]output.Output
+	store   storage.Store
 }
 
 // NewAgent creates a log recollection agent
-func NewAgent(nodeID string, client Client, out output.Output, store storage.Store) (*Agent, error) {
+func NewAgent(nodeID, datacenter string, client Client, outs map[string]output.Output, store storage.Store) (*Agent, error) {
 	return &Agent{
 		NodeID:     nodeID,
+		dc:         datacenter,
 		client:     client,
-		logCh:      make(chan *output.LogFrame),
 		tracked:    make(map[string]*Collector),
 		shutdownCh: make(chan struct{}),
-		output:     out,
+		outputs:    outs,
 		store:      store,
 	}, nil
 }
@@ -43,7 +41,6 @@ func NewAgent(nodeID string, client Client, out output.Output, store storage.Sto
 // Run boots up the agent to begin log recolecction
 func (a *Agent) Run() {
 	a.store.Initialize()
-	go a.process() // TODO: boot this up knowingly (add an stop or cancel chan to stop this before ending)
 
 	opts := &nomad.QueryOptions{WaitTime: 5 * time.Minute} // TODO: set context to cancel
 	for {
@@ -110,6 +107,7 @@ func (a *Agent) modifiedAllocation(alloc *nomad.Allocation) {
 	case terminal && ok:
 		collector.Shutdown()
 		delete(a.tracked, alloc.ID)
+		log.Printf("Finished recollection for alloc: %s". alloc.ID)
 	// Allocation is already removed and terminal
 	case terminal:
 		return
@@ -117,22 +115,10 @@ func (a *Agent) modifiedAllocation(alloc *nomad.Allocation) {
 		collector.Update(alloc)
 		return
 	default:
-		collector = NewAllocCollector(alloc, a.client, a.logCh, a.store.AllocationStorer((alloc.ID)))
+		collector = NewAllocCollector(alloc, a.dc, a.client, a.outputs, a.store.AllocationStorer((alloc.ID)))
 		if collector.Start() {
 			a.tracked[alloc.ID] = collector
-		}
-	}
-}
-
-// TESTING
-func (a *Agent) process() {
-	for {
-		select {
-		case log := <-a.logCh:
-			log.Meta["version"] = version
-
-			b, _ := json.Marshal(log)
-			a.output.Write(b)
+			log.Printf("Start recollection for alloc: %s". alloc.ID)
 		}
 	}
 }

@@ -93,6 +93,12 @@ github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXf
 github.com/stretchr/testify v1.3.0 h1:TivCn/peBQ7UY8ooIcPgZFpTNSz0Q2U6UrFlUfqbe0Q=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926/go.mod h1:9ESjWnEqriFuLhtthL60Sar/7RFoluCcXsuvEwTV5KM=
+globaldevtools.bbva.com/entsec/semaas.git/client v0.0.0-20190809123343-f1cbda88a2a6 h1:GI9AVkM2nZtS6to4S3zWiAnPhYvt2Rq2HINVSRzH00w=
+globaldevtools.bbva.com/entsec/semaas.git/client v0.0.0-20190809123343-f1cbda88a2a6/go.mod h1:GpJoF6JxdkrbEOGLHKTHBPCxYLiVsnDQez6sup7z/bI=
+globaldevtools.bbva.com/entsec/semaas.git/client v0.0.0-20190812110855-505129bc4327 h1:isoWV020K4+AB0iJdNyL9Vxmld+cbev+QX48fHn7QwQ=
+globaldevtools.bbva.com/entsec/semaas.git/client v0.0.0-20190812110855-505129bc4327/go.mod h1:GpJoF6JxdkrbEOGLHKTHBPCxYLiVsnDQez6sup7z/bI=
+globaldevtools.bbva.com/entsec/semaas.git/client v0.0.0-20190812111149-1a3c4c6426ee h1:TkP5AL2hKMCJSDWAHXHkJ2+1AYOc4XuijfPZMv1sabY=
+globaldevtools.bbva.com/entsec/semaas.git/client v0.0.0-20190812111149-1a3c4c6426ee/go.mod h1:GpJoF6JxdkrbEOGLHKTHBPCxYLiVsnDQez6sup7z/bI=
 go.etcd.io/bbolt v1.3.2 h1:Z/90sZLPOeCy2PwprqkFa25PdkusRzaj9P8zm/KNyvk=
 go.etcd.io/bbolt v1.3.2/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 golang.org/x/crypto v0.0.0-20181203042331-505ab145d0a9/go.mod h1:6SG95UA2DQfeDnfUPMdvaQW0Q7yPrPDi9nlGo2tz2b4=

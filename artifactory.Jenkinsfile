@@ -9,13 +9,12 @@ currentBuild.result = 'SUCCESS'
 import meigas.meigasGo.meigasGo;
 def meigasgo = new meigasGo();
 
-VERSION="0.0.1"
+VERSION="0.1.0"
 REPO_NAME="nomad-log-shipper"
-ARCHITECTURE="amd64"
 
 node ('meigas-golang'){    
     try{
-        gobuildOutput= meigasgo.goBuild("${REPO_NAME}", "${VERSION}", "${ARCHITECTURE}", "${env.jenkins_ssh_credentials}", "${env.BRANCH_NAME}")
+        gobuildOutput= meigasgo.build("${REPO_NAME}", "${VERSION}")
         echo "${gobuildOutput}"
     } catch (Exception e) {
         echo "${env.JOB_NAME} - Build # ${env.BUILD_NUMBER} - FAILURE (${e.message})!"
