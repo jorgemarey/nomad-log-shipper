@@ -8,7 +8,7 @@ import (
 	"syscall"
 
 	nomad "github.com/hashicorp/nomad/api"
-	"github.com/jorgemarey/nomad-log-shipper/output/natsserver"
+	"github.com/jorgemarey/nomad-log-shipper/output/nats"
 	"github.com/jorgemarey/nomad-log-shipper/storage/boltdb"
 )
 
@@ -19,7 +19,7 @@ func main() {
 	client, _ := nomad.NewClient(nomad.DefaultConfig())
 	id, _ := getLocalNodeID(client)
 
-	output, _ := natsserver.NewNatsOutput()
+	output, _ := nats.NewNatsStreamingOutput()
 	store := boltdb.NewBoltDBStore()
 
 	agent, _ := NewAgent(id, newClient(client), output, store)

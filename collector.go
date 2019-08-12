@@ -13,8 +13,6 @@ import (
 	"github.com/jorgemarey/nomad-log-shipper/storage"
 )
 
-const shipperPrefix = "logger_"
-
 // Collector is the one dealing with the allocation log recollection
 type Collector struct {
 	alloc  *nomad.Allocation

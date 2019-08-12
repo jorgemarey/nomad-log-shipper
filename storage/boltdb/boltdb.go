@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jorgemarey/nomad-log-shipper/storage"
 	"github.com/boltdb/bolt"
+	"github.com/jorgemarey/nomad-log-shipper/storage"
 )
 
 type boltStore struct {
@@ -30,7 +30,7 @@ func NewBoltDBStore() storage.Store {
 }
 
 func (s *boltStore) Initialize() error {
-	db, err := bolt.Open("my.db", 0600, &bolt.Options{Timeout: 1 * time.Second})
+	db, err := bolt.Open("local/my.db", 0600, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {
 		return err
 	}

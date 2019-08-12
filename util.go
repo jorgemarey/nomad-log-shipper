@@ -13,6 +13,8 @@ const (
 	maxLineSize = 32 * 1024
 )
 
+const shipperPrefix = "logger_"
+
 // getLocalNodeID returns the node ID of the local Nomad Client and an error if
 // it couldn't be determined or the Agent is not running in Client mode.
 func getLocalNodeID(client *nomad.Client) (string, error) {

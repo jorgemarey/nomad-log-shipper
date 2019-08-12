@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"sync"
 	"time"
 
@@ -129,7 +130,9 @@ func (a *Agent) process() {
 		select {
 		case log := <-a.logCh:
 			log.Meta["version"] = version
-			a.output.Write(log)
+
+			b, _ := json.Marshal(log)
+			a.output.Write(b)
 		}
 	}
 }
