@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"sync"
 	"time"
 
@@ -107,7 +108,7 @@ func (a *Agent) modifiedAllocation(alloc *nomad.Allocation) {
 	case terminal && ok:
 		collector.Shutdown()
 		delete(a.tracked, alloc.ID)
-		log.Printf("Finished recollection for alloc: %s". alloc.ID)
+		log.Printf("Finished recollection for alloc: %s", alloc.ID)
 	// Allocation is already removed and terminal
 	case terminal:
 		return
@@ -118,7 +119,7 @@ func (a *Agent) modifiedAllocation(alloc *nomad.Allocation) {
 		collector = NewAllocCollector(alloc, a.dc, a.client, a.outputs, a.store.AllocationStorer((alloc.ID)))
 		if collector.Start() {
 			a.tracked[alloc.ID] = collector
-			log.Printf("Start recollection for alloc: %s". alloc.ID)
+			log.Printf("Start recollection for alloc: %s", alloc.ID)
 		}
 	}
 }
