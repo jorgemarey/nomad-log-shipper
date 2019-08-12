@@ -1,14 +1,13 @@
 package file
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/jorgemarey/nomad-log-shipper/output"
 )
 
 type fileOutput struct {
-	f *os.File
+	*os.File
 }
 
 // NewFileOutput return
@@ -25,14 +24,5 @@ func NewFileOutput(file string) (output.Output, error) {
 		f, err = os.Open(file)
 	}
 
-	return &fileOutput{f: f}, err
-}
-
-func (o *fileOutput) Write(frame *output.LogFrame) error {
-	_, err := o.f.WriteString(fmt.Sprintf("%s\n", string(frame.Data)))
-	return err
-}
-
-func (o *fileOutput) Close() error {
-	return o.f.Close()
+	return &fileOutput{File: f}, err
 }
