@@ -37,12 +37,9 @@ func (p *semaasProcessor) Process(text string, properties map[string]interface{}
 			log.MrID = meta["mrid"]
 		}
 
-		data := struct {
-			Meta map[string]string `json:"meta"`
-			omega.LogEntry
-		}{
+		data := &entryData{
 			Meta: meta,
-			LogEntry: *log,
+			LogEntry: log,
 		}
 		db, err := json.Marshal(data)
 		if err != nil {
@@ -52,12 +49,9 @@ func (p *semaasProcessor) Process(text string, properties map[string]interface{}
 	}
 
 	if span != nil {
-		data := struct {
-			Meta map[string]string `json:"meta"`
-			rho.Span
-		}{
+		data := &spanData{
 			Meta: meta,
-			Span: *span,
+			Span: span,
 		}
 		db, err := json.Marshal(data)
 		if err != nil {
@@ -119,4 +113,45 @@ func (p *semaasProcessor) formatted(text string, properties map[string]interface
 	default:
 		return nil, nil, false
 	}
+}
+
+
+type entryData struct {
+		Meta map[string]string `json:"meta"`
+		*omega.LogEntry
+}
+
+func (d *entryData) MarshalJSON() ([]byte, error) {
+	p, err := json.Marshal(d.LogEntry)
+	if err != nil {
+		return nil, err
+	}
+
+	var data map[string]interface{}
+	if err := json.Unmarshal(p, &data); err != nil {
+		return nil, err
+	}
+
+	data["meta"] = d.Meta
+	return json.Marshal(data)
+}
+
+type spanData struct {
+	Meta map[string]string `json:"meta"`
+	*rho.Span
+}
+
+func (d *spanData) MarshalJSON() ([]byte, error) {
+	p, err := json.Marshal(d.Span)
+	if err != nil {
+		return nil, err
+	}
+
+	var data map[string]interface{}
+	if err := json.Unmarshal(p, &data); err != nil {
+		return nil, err
+	}
+
+	data["meta"] = d.Meta
+	return json.Marshal(data)
 }
