@@ -37,7 +37,7 @@ func (p *semaasProcessor) Process(text string, properties map[string]interface{}
 			log.MrID = meta["mrid"]
 		}
 
-		data := &struct {
+		data := struct {
 			Meta map[string]string `json:"meta"`
 			omega.LogEntry
 		}{
@@ -52,7 +52,7 @@ func (p *semaasProcessor) Process(text string, properties map[string]interface{}
 	}
 
 	if span != nil {
-		data := &struct {
+		data := struct {
 			Meta map[string]string `json:"meta"`
 			rho.Span
 		}{
