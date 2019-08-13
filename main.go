@@ -58,7 +58,13 @@ func main() {
 }
 
 func outputs() map[string]output.Output {
-	out, err := nats.NewNatsStreamingOutput("log")
+	logOut, err := nats.NewNatsStreamingOutput("log")
+	if err != nil {
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	spanOut, err := nats.NewNatsStreamingOutput("span")
 	if err != nil {
 		if err != nil {
 			log.Fatal(err)
@@ -66,7 +72,7 @@ func outputs() map[string]output.Output {
 	}
 
 	return map[string]output.Output{
-		"log":  out,
-		"span": out.Output("span"),
+		"log":  logOut,
+		"span": spanOut,
 	}
 }

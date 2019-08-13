@@ -219,7 +219,9 @@ func (p *streamProccessor) Start() {
 			log.Printf("Kind not found: %s", kind)
 			continue
 		}
-		out.Write(data)
+		if _, err = out.Write(data); err != nil {
+			log.Printf("error writing data to output: %s. Msg could be lost", err)
+		}
 	}
 
 	if p.scanner.Err() != nil {
