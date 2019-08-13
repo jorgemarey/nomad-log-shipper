@@ -36,9 +36,8 @@ func (p *semaasProcessor) Process(text string, properties map[string]interface{}
 		if log.MrID == "" {
 			log.MrID = meta["mrid"]
 		}
-
 		data := &entryData{
-			Meta: meta,
+			Meta:     meta,
 			LogEntry: log,
 		}
 		db, err := json.Marshal(data)
@@ -49,6 +48,9 @@ func (p *semaasProcessor) Process(text string, properties map[string]interface{}
 	}
 
 	if span != nil {
+		if span.MrID == "" {
+			span.MrID = meta["mrid"]
+		}
 		data := &spanData{
 			Meta: meta,
 			Span: span,
@@ -115,10 +117,9 @@ func (p *semaasProcessor) formatted(text string, properties map[string]interface
 	}
 }
 
-
 type entryData struct {
-		Meta map[string]string `json:"meta"`
-		*omega.LogEntry
+	Meta map[string]string `json:"meta"`
+	*omega.LogEntry
 }
 
 func (d *entryData) MarshalJSON() ([]byte, error) {

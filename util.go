@@ -96,30 +96,32 @@ func getMeta(alloc *nomad.Allocation, task string) map[string]string {
 
 func getProperties(alloc *nomad.Allocation, task, dc string) map[string]interface{} {
 	properties := map[string]interface{}{
+		"region":     *alloc.Job.Region,
+		"dc":         dc,
 		"namespace":  alloc.Namespace,
 		"job":        alloc.JobID,
 		"group":      alloc.TaskGroup,
 		"task":       task,
 		"allocation": alloc.ID,
-		"region":     *alloc.Job.Region,
-		"datacenter": dc,
 	}
 
-	services := make([]string, 0)
-	for _, tg := range alloc.Job.TaskGroups {
-		if *tg.Name == alloc.TaskGroup {
-			for _, t := range tg.Tasks {
-				if t.Name == task {
-					for _, s := range t.Services {
-						services = append(services, s.Name)
-					}
-				}
-			}
-		}
-	}
-	if len(services) > 0 {
-		properties["service"] = services
-	}
+	// -- wright now to add this we should interpolate the values, because in the
+	// spec they could come as env values
+	// services := make([]string, 0)
+	// for _, tg := range alloc.Job.TaskGroups {
+	// 	if *tg.Name == alloc.TaskGroup {
+	// 		for _, t := range tg.Tasks {
+	// 			if t.Name == task {
+	// 				for _, s := range t.Services {
+	// 					services = append(services, s.Name)
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+	// }
+	// if len(services) > 0 {
+	// 	properties["service"] = services
+	// }
 
 	if matchs := indexRegex.FindStringSubmatch(alloc.Name); len(matchs) == 2 {
 		index, _ := strconv.Atoi(matchs[1])

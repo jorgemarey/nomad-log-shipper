@@ -1,11 +1,11 @@
 package main
 
 import (
-	"log"
 	"bufio"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"sync"
 	"time"
 
