@@ -23,7 +23,7 @@ type NatsStreamingOutput struct {
 // NewNatsStreamingOutput return
 func NewNatsStreamingOutput(name string) (*NatsStreamingOutput, error) {
 	output := &NatsStreamingOutput{subject: os.Getenv(fmt.Sprintf("STAN_SUBJECT_%s", name)), connP: true}
-	sc, err := stan.Connect(os.Getenv("STAN_CLUSTER_ID"), os.Getenv("STAN_CLIENT_ID"),
+	sc, err := stan.Connect(os.Getenv("STAN_CLUSTER_ID"), fmt.Sprintf("%s-%s", os.Getenv("STAN_CLIENT_ID"), name),
 		stan.NatsURL(os.Getenv("NATS_URL")),
 		stan.SetConnectionLostHandler(output.lostHandler),
 	)

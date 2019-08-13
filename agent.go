@@ -92,7 +92,9 @@ func (a *Agent) Shutdown(ctx context.Context) error {
 		<-finishCh
 	}
 	// TODO: wait for processing to finish
-
+	for _, out := range a.outputs {
+		out.Close()
+	}
 	a.store.Close()
 	return nil
 }

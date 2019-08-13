@@ -14,7 +14,7 @@ import (
 	"github.com/jorgemarey/nomad-log-shipper/storage/boltdb"
 )
 
-const version = "0.1.3"
+const version = "0.1.4"
 
 func main() {
 	var nodeID string
