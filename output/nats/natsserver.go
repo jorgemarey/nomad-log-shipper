@@ -21,11 +21,12 @@ func NewNatsServerOutput( /*TODO options*/ ) (output.Output, error) {
 	output := &natsServerOutput{
 		connP: true,
 	}
-	nc, err := nats.Connect(nats.DefaultURL, nats.PingInterval(10*time.Second), nats.MaxPingsOutstanding(5), nats.DisconnectHandler(func(nc *nats.Conn) {
-		output.connChange(false)
-	}), nats.ReconnectHandler(func(nc *nats.Conn) {
-		output.connChange(true)
-	}))
+	nc, err := nats.Connect(nats.DefaultURL, nats.PingInterval(10*time.Second), nats.MaxPingsOutstanding(5),
+		nats.DisconnectHandler(func(nc *nats.Conn) {
+			output.connChange(false)
+		}), nats.ReconnectHandler(func(nc *nats.Conn) {
+			output.connChange(true)
+		}))
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -14,7 +14,7 @@ import (
 	"github.com/jorgemarey/nomad-log-shipper/storage/boltdb"
 )
 
-const version = "0.1.4"
+const version = "0.2.0"
 
 func main() {
 	var nodeID string
@@ -58,13 +58,7 @@ func main() {
 }
 
 func outputs() map[string]output.Output {
-	logOut, err := nats.NewNatsStreamingOutput("log")
-	if err != nil {
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-	spanOut, err := nats.NewNatsStreamingOutput("span")
+	out, err := nats.NewNatsStreamingOutput()
 	if err != nil {
 		if err != nil {
 			log.Fatal(err)
@@ -72,7 +66,7 @@ func outputs() map[string]output.Output {
 	}
 
 	return map[string]output.Output{
-		"log":  logOut,
-		"span": spanOut,
+		"log":  out.Output("log"),
+		"span": out.Output("span"),
 	}
 }
