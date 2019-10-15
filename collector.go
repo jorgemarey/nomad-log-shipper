@@ -110,13 +110,15 @@ func (c *Collector) collectTaskLogs(task string, meta map[string]string) { // TO
 		// hearbeat frames are already processed by nomad client
 		select {
 		case frame := <-stderr:
-			if frame.FileEvent != "" {
+			if frame == nil || frame.FileEvent != "" {
+				log.Printf("Frame was nil or filevent")
 				continue // TODO
 			}
 			errP.Write(frame.Data)
 			c.storer.Set(task, "stderr", &storage.Info{Offset: frame.Offset, File: frame.File})
 		case frame := <-stdout:
-			if frame.FileEvent != "" {
+			if frame == nil || frame.FileEvent != "" {
+				log.Printf("Frame was nil or filevent")
 				continue // TODO
 			}
 			outP.Write(frame.Data)
