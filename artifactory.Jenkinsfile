@@ -6,7 +6,7 @@ globalHelper = new globaldevops.helper.helper()
 go = new meigas.meigasGo.meigasGo();
 
 PROJECT="nomad-log-shipper"
-VERSION="0.2.1"
+VERSION="0.2.2"
 
 // Initilize status
 currentBuild.result = 'SUCCESS'

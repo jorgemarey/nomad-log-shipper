@@ -196,13 +196,18 @@ func newStreamProccessor(outs map[string]output.Output, kind, taskName string, p
 	pr, pw := io.Pipe()
 	scanner := bufio.NewScanner(pr)
 	scanner.Split(sizeSpliter(maxLineSize, bufio.ScanLines))
+	localProps := map[string]interface{}{"stream": kind}
+	for k, v := range properties {
+		localProps[k] = v
+	}
+
 	return &streamProccessor{
 		scanner:     scanner,
 		reader:      pr,
 		WriteCloser: pw,
 		outputs:     outs,
 		kind:        kind,
-		properties:  properties,
+		properties:  localProps,
 		meta:        meta,
 		processor:   semaas.NewSemaasProcessor(),
 		finish:      make(chan struct{}),
